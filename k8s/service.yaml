@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ray-agent-sre
+  labels:
+    app: ray-agent-sre
+spec:
+  selector:
+    app: ray-agent-sre
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: 9100
+  type: ClusterIP

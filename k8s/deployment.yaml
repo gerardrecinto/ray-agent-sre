@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ray-agent-sre
+  labels:
+    app: ray-agent-sre
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ray-agent-sre
+  template:
+    metadata:
+      labels:
+        app: ray-agent-sre
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: ray-agent-sre
+          image: ray-agent-sre:latest
+          imagePullPolicy: IfNotPresent
+          args: ["--port", "9100", "--interval", "5"]
+          ports:
+            - name: metrics
+              containerPort: 9100
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 9100
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 9100
+            initialDelaySeconds: 20
+            periodSeconds: 30
