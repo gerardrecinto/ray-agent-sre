@@ -60,12 +60,17 @@ Ray cluster metrics (from `ray.util.state.list_nodes/list_actors/list_tasks`):
 | metric | type | labels | meaning |
 |---|---|---|---|
 | `ray_node_up` | gauge | `node_id` | 1 if node is alive, 0 otherwise |
-| `ray_node_cpu_available` | gauge | `node_id` | available CPU on node |
 | `ray_node_cpu_total` | gauge | `node_id` | total CPU on node |
 | `ray_cluster_node_count` | gauge | - | total nodes in cluster |
 | `ray_cluster_alive_node_count` | gauge | - | nodes currently alive |
+| `ray_cluster_cpu_total` | gauge | - | total CPU across the cluster |
+| `ray_cluster_cpu_available` | gauge | - | available (unscheduled) CPU across the cluster |
 | `ray_actor_state_count` | gauge | `state` | actor count by state (ALIVE, DEAD, RESTARTING, ...) |
 | `ray_task_state_count` | gauge | `state` | task count by state (FINISHED, FAILED, RUNNING, ...) |
+
+Note: `ray.util.state.list_nodes()` does not expose per-node available CPU
+(only per-node total), so available capacity is only tracked at the cluster
+level via `ray.available_resources()`, not per node.
 
 LangGraph run metrics (from the `GraphRunTracer` node wrapper):
 
@@ -75,6 +80,9 @@ LangGraph run metrics (from the `GraphRunTracer` node wrapper):
 | `langgraph_node_errors_total` | counter | `node` | invocations that raised |
 | `langgraph_node_retries_total` | counter | `node` | retries triggered after an error |
 | `langgraph_node_latency_seconds` | histogram | `node` | wall clock latency per node invocation |
+| `langgraph_graph_runs_total` | counter | - | total end-to-end graph runs |
+| `langgraph_graph_errors_total` | counter | - | end-to-end graph runs that raised |
+| `langgraph_graph_run_latency_seconds` | histogram | - | wall clock latency for one full graph run, start to end node |
 
 The Grafana dashboard in `grafana/dashboard.json` has one panel per metric
 above, so importing it against a Prometheus datasource scraping this exporter
