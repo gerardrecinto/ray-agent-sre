@@ -58,4 +58,5 @@ def build_graph(tracer: GraphRunTracer):
 
 def run_demo_graph(tracer: GraphRunTracer, query: str) -> GraphState:
     app = build_graph(tracer)
-    return app.invoke({"query": query, "retrieved": "", "answer": ""})
+    with tracer.track_run():
+        return app.invoke({"query": query, "retrieved": "", "answer": ""})

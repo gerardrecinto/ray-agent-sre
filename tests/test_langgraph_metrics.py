@@ -78,3 +78,28 @@ def test_wrap_isolates_metrics_per_node_name():
     assert _value(registry, "langgraph_node_errors_total", {"node": "a"}) == 0.0
     assert _value(registry, "langgraph_node_runs_total", {"node": "b"}) == 1.0
     assert _value(registry, "langgraph_node_errors_total", {"node": "b"}) == 1.0
+
+
+def test_track_run_records_success_run_and_latency():
+    registry = CollectorRegistry()
+    tracer = GraphRunTracer(registry)
+
+    with tracer.track_run():
+        pass
+
+    assert _value(registry, "langgraph_graph_runs_total") == 1.0
+    assert _value(registry, "langgraph_graph_errors_total") == 0.0
+    assert _value(registry, "langgraph_graph_run_latency_seconds_count") == 1.0
+
+
+def test_track_run_records_error_and_reraises():
+    registry = CollectorRegistry()
+    tracer = GraphRunTracer(registry)
+
+    with pytest.raises(RuntimeError):
+        with tracer.track_run():
+            raise RuntimeError("boom")
+
+    assert _value(registry, "langgraph_graph_runs_total") == 1.0
+    assert _value(registry, "langgraph_graph_errors_total") == 1.0
+    assert _value(registry, "langgraph_graph_run_latency_seconds_count") == 1.0

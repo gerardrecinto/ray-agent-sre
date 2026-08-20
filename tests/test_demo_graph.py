@@ -19,6 +19,8 @@ def test_run_demo_graph_produces_answer_and_metrics():
     assert _value(registry, "langgraph_node_runs_total", {"node": "retrieve"}) == 1.0
     assert _value(registry, "langgraph_node_runs_total", {"node": "generate"}) == 1.0
     assert _value(registry, "langgraph_node_runs_total", {"node": "verify"}) == 1.0
+    assert _value(registry, "langgraph_graph_runs_total") == 1.0
+    assert _value(registry, "langgraph_graph_errors_total") == 0.0
 
 
 def test_run_demo_graph_many_runs_eventually_records_retries():

@@ -2,17 +2,19 @@
 
 LangGraph nodes are plain callables added to a StateGraph. GraphRunTracer.wrap
 returns a decorator that times each invocation, retries on exception up to
-max_retries, and records everything as Prometheus series. It has no
-dependency on langgraph itself, so it is unit testable without building a
-graph, and the demo graph in demo_graph.py shows it wired to a real
-StateGraph.
+max_retries, and records everything as Prometheus series. GraphRunTracer.
+track_run is a context manager for the same thing at the whole-graph level,
+for wrapping a compiled graph's `.invoke(...)` call. Neither has a dependency
+on langgraph itself, so both are unit testable without building a graph, and
+the demo graph in demo_graph.py shows them wired to a real StateGraph.
 """
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import time
-from typing import Callable, TypeVar
+from typing import Callable, Iterator, TypeVar
 
 from prometheus_client import CollectorRegistry, Counter, Histogram
 
@@ -37,6 +39,17 @@ class GraphRunTracer:
             "langgraph_node_latency_seconds",
             "Wall clock latency per node invocation, including retries",
             ["node"],
+            registry=registry,
+        )
+        self.graph_runs = Counter(
+            "langgraph_graph_runs_total", "Total end-to-end graph runs", registry=registry
+        )
+        self.graph_errors = Counter(
+            "langgraph_graph_errors_total", "End-to-end graph runs that raised", registry=registry
+        )
+        self.graph_latency = Histogram(
+            "langgraph_graph_run_latency_seconds",
+            "Wall clock latency for one full graph run, start to end node",
             registry=registry,
         )
 
@@ -70,3 +83,21 @@ class GraphRunTracer:
             return wrapped
 
         return decorator
+
+    @contextlib.contextmanager
+    def track_run(self) -> Iterator[None]:
+        """Time one full graph invocation, start to end node.
+
+        Wrap the call to a compiled graph's `.invoke(...)` in this to get
+        end-to-end run/error/latency series on top of the per-node ones
+        `wrap` already records.
+        """
+        start = time.perf_counter()
+        self.graph_runs.inc()
+        try:
+            yield
+        except Exception:
+            self.graph_errors.inc()
+            raise
+        finally:
+            self.graph_latency.observe(time.perf_counter() - start)
