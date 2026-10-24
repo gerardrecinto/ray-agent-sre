@@ -1,0 +1,39 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", "ray_agent_sre/langgraph_metrics.py", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Assemble site
+        run: |
+          mkdir -p _site/py _site/wheels
+          cp site/index.html _site/
+          cp ray_agent_sre/__init__.py ray_agent_sre/langgraph_metrics.py _site/py/
+          python3 -m pip download prometheus_client --no-deps -d _site/wheels -q
+          (cd _site/wheels && ls *.whl > manifest.txt)
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v5
