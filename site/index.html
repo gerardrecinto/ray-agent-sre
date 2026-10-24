@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ray-agent-sre: one metrics endpoint for Ray and agents</title>
+<meta name="description" content="Run a LangGraph-style graph through the real tracer in your browser and see the Prometheus series it exports: node runs, errors, retries and latency.">
+<meta property="og:title" content="ray-agent-sre">
+<meta property="og:description" content="Run a LangGraph-style graph through the real tracer in your browser and see the Prometheus series it exports: node runs, errors, retries and latency.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%238b5cf6'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='%23fff' stroke-width='3'/%3E%3C/svg%3E">
+<style>
+
+:root{--bg:#f8fafc;--panel:#fff;--panel2:#f1f5f9;--line:#e2e8f0;--fg:#0f172a;--mute:#475569;--brand:#6d28d9;--brand-bg:#ede9fe;--ok:#047857;--ok-bg:#d1fae5;--err:#b91c1c;--err-bg:#fee2e2;--code:#0b1220;--code-fg:#e2e8f0}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#070d1a;--panel:#0d1526;--panel2:#111c33;--line:#1e2b47;--fg:#e8eefc;--mute:#9fb0cc;--brand:#a78bfa;--brand-bg:#2a1659;--ok:#34d399;--ok-bg:#06382b;--err:#fca5a5;--err-bg:#3b1212}}
+:root[data-theme=dark]{--bg:#070d1a;--panel:#0d1526;--panel2:#111c33;--line:#1e2b47;--fg:#e8eefc;--mute:#9fb0cc;--brand:#a78bfa;--brand-bg:#2a1659;--ok:#34d399;--ok-bg:#06382b;--err:#fca5a5;--err-bg:#3b1212}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--brand)}
+code,pre,textarea,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+nav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:56px;gap:12px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--fg);text-decoration:none}
+.logo i{width:22px;height:22px;border-radius:6px;background:#8b5cf6;display:inline-block}
+nav .links{display:flex;gap:18px;align-items:center;font-size:14px}
+nav .links a{color:var(--mute);text-decoration:none}
+nav .links a:hover{color:var(--fg)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;font-weight:600;text-decoration:none;border:1px solid var(--line);color:var(--fg);background:var(--panel);cursor:pointer;font-size:15px}
+.btn.primary{background:#8b5cf6;border-color:#8b5cf6;color:#1a0b3d}
+.btn.primary:hover{background:#a78bfa}
+.btn:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px}
+.hero{padding:72px 0 40px;text-align:center}
+.pill{display:inline-block;font-size:13px;color:var(--brand);background:var(--brand-bg);padding:4px 12px;border-radius:99px;margin-bottom:20px;font-weight:600}
+h1{font-size:clamp(34px,6vw,58px);line-height:1.08;margin:0 0 18px;letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--brand)}
+.lede{max-width:700px;margin:0 auto 28px;color:var(--mute);font-size:18px}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.stats{display:flex;gap:28px;justify-content:center;flex-wrap:wrap;margin-top:36px;color:var(--mute);font-size:14px}
+.stats b{display:block;color:var(--fg);font-size:22px}
+section{padding:56px 0}
+h2{font-size:clamp(26px,4vw,36px);margin:0 0 8px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 28px;max-width:720px}
+.lab{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:860px){.lab{grid-template-columns:minmax(0,1fr)}nav .links .hide-s{display:none}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0}
+.card h3{margin:0;padding:12px 16px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.tools{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:600 12px system-ui;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer;text-transform:none;letter-spacing:0}
+.chip[aria-pressed=true]{background:var(--brand-bg);border-color:var(--brand);color:var(--brand)}
+#log{display:block;width:100%;height:420px;border:0;padding:12px 14px;font-size:12.5px;line-height:1.55;background:var(--code);color:var(--code-fg);resize:vertical;white-space:pre;overflow:auto}
+.src{display:flex;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--mute);flex-wrap:wrap}
+.out{min-height:420px}
+.status{padding:16px;color:var(--mute);font-size:14px}
+.verdict{padding:18px 16px;border-bottom:1px solid var(--line);background:var(--err-bg)}
+.verdict.unknown{background:var(--panel2)}
+.verdict b{display:block;font-size:20px;text-transform:uppercase;letter-spacing:.04em;color:var(--err)}
+.verdict.unknown b{color:var(--mute)}
+.verdict span{font-size:14px;color:var(--mute)}
+.sec{padding:14px 16px;border-bottom:1px solid var(--line)}
+.sec:last-child{border-bottom:0}
+.sec h4{margin:0 0 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.bar{height:10px;border-radius:99px;background:var(--panel2);overflow:hidden;max-width:260px;display:inline-block;vertical-align:middle;margin-right:10px;width:60%}
+.bar i{display:block;height:100%;background:#8b5cf6}
+.site{padding:8px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.site:last-child{border:0}
+.site code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px}
+.fix{background:var(--ok-bg);color:var(--ok);padding:10px 12px;border-radius:8px;font-size:14px}
+.note{font-size:13px;color:var(--mute);margin-top:12px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:860px){.steps{grid-template-columns:minmax(0,1fr)}}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.step .n{width:28px;height:28px;border-radius:8px;background:var(--brand-bg);color:var(--brand);display:grid;place-items:center;font-weight:700;margin-bottom:10px}
+.step h3{margin:0 0 6px;font-size:17px}
+.step p{margin:0;color:var(--mute);font-size:15px}
+.tw{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow-x:auto;max-width:100%}
+table{width:100%;min-width:560px;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);background:var(--panel2)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-family:ui-monospace,monospace;font-weight:700;white-space:nowrap}
+.install pre{background:var(--code);color:var(--code-fg);padding:16px;border-radius:12px;overflow-x:auto;font-size:13.5px;margin:0 0 12px}
+.cols2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:860px){.cols2{grid-template-columns:minmax(0,1fr)}}
+.limits{background:var(--panel);border:1px solid var(--line);border-left:4px solid #f59e0b;border-radius:10px;padding:16px 20px}
+.limits ul{margin:8px 0 0;padding-left:20px;color:var(--mute)}
+footer{border-top:1px solid var(--line);padding:32px 0;color:var(--mute);font-size:14px}
+footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+.ctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;padding:14px}
+.ctrl label{display:block;font-size:12px;color:var(--mute);margin-bottom:4px}
+.ctrl input[type=range]{width:100%;accent-color:var(--brand)}
+.ctrl output{font:600 12px ui-monospace,monospace;color:var(--fg)}
+.row{display:flex;gap:10px;padding:12px 14px;border-top:1px solid var(--line);flex-wrap:wrap;align-items:center}
+.sim{display:inline-block;font:700 11px ui-monospace,monospace;color:var(--brand);background:var(--brand-bg);padding:2px 8px;border-radius:6px;margin-left:8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;padding:14px;border-bottom:1px solid var(--line)}
+.kpi{background:var(--panel2);border-radius:10px;padding:10px 12px}
+.kpi b{display:block;font-size:22px}.kpi span{font-size:12px;color:var(--mute)}
+pre.raw{margin:0;padding:12px 16px;font-size:12px;line-height:1.55;white-space:pre;overflow:auto;max-height:260px;background:var(--code);color:var(--code-fg)}
+.tw table{min-width:420px}
+.num{text-align:right;font-family:ui-monospace,monospace}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a class="logo" href="#top"><i></i>ray-agent-sre</a>
+  <div class="links"><a href="#try" class="hide-s">Try it</a><a href="#install" class="hide-s">Metrics</a><a class="btn" href="https://github.com/gerardrecinto/ray-agent-sre">GitHub</a></div>
+</div></nav>
+
+<header class="hero" id="top"><div class="wrap">
+  <h1>Is the cluster healthy, <em>and</em> are the agents on it?</h1>
+  <p class="lede">A Prometheus exporter that covers Ray cluster health and LangGraph agent runs on one low-cardinality endpoint, with a matching Grafana dashboard.</p>
+  <div class="cta"><a class="btn primary" href="#try">Run an agent graph</a><a class="btn" href="#install">Run it</a></div>
+  <div class="stats"><div><b>7</b>agent-run series</div><div><b>1</b>/metrics endpoint</div><div><b>0</b>Ray clusters touched here</div></div>
+</div></header>
+
+
+<section id="try"><div class="wrap">
+  <h2>Run an agent graph through the tracer</h2>
+  <p class="sub">The page runs the real <code>GraphRunTracer</code> from the repo in your browser. A three-node graph runs many times. Each node fails at the rate you set, and the wrapper retries it. The numbers below are the Prometheus series the exporter would publish for those runs.</p>
+  <div class="lab">
+    <div class="card">
+      <h3><span>Graph <span class="sim">SIMULATED NODES</span></span><span class="tools"><button class="chip" id="reset">Reset</button></span></h3>
+      <div class="ctrl">
+        <div><label for="f1">retrieve failure rate <output id="o1">20%</output></label><input id="f1" type="range" min="0" max="100" value="20"></div>
+        <div><label for="f2">plan failure rate <output id="o2">0%</output></label><input id="f2" type="range" min="0" max="100" value="0"></div>
+        <div><label for="f3">act failure rate <output id="o3">40%</output></label><input id="f3" type="range" min="0" max="100" value="40"></div>
+        <div><label for="rt">max retries per node <output id="o4">1</output></label><input id="rt" type="range" min="0" max="4" value="1"></div>
+        <div><label for="runs">graph runs <output id="o5">30</output></label><input id="runs" type="range" min="5" max="60" value="30"></div>
+      </div>
+      <div class="row"><button class="btn primary" id="go" type="button">Run the graph</button><span class="note" style="margin:0">Seeded, so the same settings give the same result.</span></div>
+    </div>
+    <div class="card" id="res" aria-live="polite">
+      <h3><span>Exporter output</span></h3>
+      <div class="status" id="boot">Loading the tracer (about 10 MB the first time, cached after)...</div>
+    </div>
+  </div>
+  <p class="note">Only the tracer is real here. The Ray collector needs a Ray cluster, so it is not part of this page. Node work is a 2 ms sleep, so latency shows the effect of retries, not real model calls.</p>
+</div></section>
+
+<section><div class="wrap">
+  <h2>How it works</h2>
+  <p class="sub">One <code>/metrics</code> endpoint for the compute layer and the agent layer on top of it.</p>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><h3>Wrap each node</h3><p>A decorator times every call, retries on exception up to a limit, and counts runs, errors and retries per node. It does not import LangGraph, so any callable works.</p></div>
+    <div class="step"><div class="n">2</div><h3>Track the whole run</h3><p>A context manager around the compiled graph records end-to-end runs, errors and latency, on top of the per-node series.</p></div>
+    <div class="step"><div class="n">3</div><h3>Scrape one surface</h3><p>The server also reads node, actor and task state from Ray's state API and serves everything on port 9100, with a Grafana dashboard that matches.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Metrics</h2>
+  <div class="tw"><table><thead><tr><th>Metric</th><th>Type</th><th>Meaning</th></tr></thead><tbody>
+    <tr><td>langgraph_node_runs_total</td><td>counter</td><td>Invocations of a graph node</td></tr>
+    <tr><td>langgraph_node_errors_total</td><td>counter</td><td>Invocations that raised</td></tr>
+    <tr><td>langgraph_node_retries_total</td><td>counter</td><td>Retries after an error</td></tr>
+    <tr><td>langgraph_node_latency_seconds</td><td>histogram</td><td>Latency per node call, retries included</td></tr>
+    <tr><td>langgraph_graph_runs_total</td><td>counter</td><td>End-to-end graph runs</td></tr>
+    <tr><td>langgraph_graph_errors_total</td><td>counter</td><td>Runs that raised</td></tr>
+    <tr><td>langgraph_graph_run_latency_seconds</td><td>histogram</td><td>Latency of one full run</td></tr>
+    <tr><td>ray_node_up, ray_cluster_cpu_total, ray_actor_state_count, ray_task_state_count</td><td>gauge</td><td>Ray cluster health, from <code>ray.util.state</code></td></tr>
+  </tbody></table></div>
+</div></section>
+
+<section id="install" class="install"><div class="wrap">
+  <h2>Run it</h2>
+  <p class="sub">Python 3.12. It starts a local single-node Ray cluster.</p>
+  <div class="cols2">
+    <div>
+<pre>python3.12 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+python -m ray_agent_sre.server --port 9100 --interval 5
+curl localhost:9100/metrics</pre>
+    </div>
+    <div>
+<pre>docker build -t ray-agent-sre .
+docker run -p 9100:9100 ray-agent-sre</pre>
+      <p class="note">Import <code>grafana/dashboard.json</code> into Grafana. Kubernetes manifests are in <code>k8s/</code>.</p>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="limits">
+    <strong>What this does not do</strong>
+    <ul>
+      <li>It is a proof of concept, run against a single-node local Ray cluster. It has not been run against a production multi-node cluster.</li>
+      <li>Ray does not expose per-node available CPU, so available capacity is tracked only for the whole cluster.</li>
+      <li>The sample deployment starts its own in-process Ray. Pointing it at an existing cluster is a <code>RAY_ADDRESS</code> change that has not been tested.</li>
+    </ul>
+  </div>
+</div></section>
+
+
+<footer><div class="wrap">
+  <span>ray-agent-sre. MIT licensed. Built by <a href="https://github.com/gerardrecinto">Gerard Recinto</a>.</span>
+  <span><a href="https://github.com/gerardrecinto/ray-agent-sre">Source</a> &middot; <a href="https://github.com/gerardrecinto/ray-agent-sre/releases">Releases</a></span>
+</div></footer>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script>
+
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let py = null;
+  const track = (n) => { try { if (window.plausible) window.plausible(n); } catch (e) {} };
+  const PY = `
+import json, random, time
+from prometheus_client import CollectorRegistry, generate_latest
+from ray_agent_sre.langgraph_metrics import GraphRunTracer
+def run(runs, fails, retries, seed):
+    reg = CollectorRegistry()
+    tr = GraphRunTracer(reg)
+    rnd = random.Random(seed)
+    def mk(name, p):
+        @tr.wrap(name, max_retries=retries)
+        def node():
+            time.sleep(0.002)
+            if rnd.random() < p:
+                raise RuntimeError(name + " failed")
+        return node
+    nodes = [mk(n, p) for n, p in fails]
+    ok = 0
+    for _ in range(runs):
+        try:
+            with tr.track_run():
+                for n in nodes:
+                    n()
+            ok += 1
+        except Exception:
+            pass
+    text = generate_latest(reg).decode()
+    series = [l for l in text.splitlines() if l.startswith("langgraph_") and "_bucket" not in l and "_created" not in l]
+    return json.dumps({"ok": ok, "runs": runs, "series": series})
+`;
+  const NODES = ["retrieve", "plan", "act"];
+  function parse(series) {
+    const get = (name, node) => { const re = node ? new RegExp("^" + name + '\\{node="' + node + '"\\} (\\S+)') : new RegExp("^" + name + " (\\S+)"); for (const l of series) { const m = l.match(re); if (m) return parseFloat(m[1]); } return 0; };
+    return { get };
+  }
+  function show(o) {
+    const p = parse(o.series), r = $("res");
+    const rows = NODES.map((n) => { const c = p.get("langgraph_node_latency_seconds_count", n), s = p.get("langgraph_node_latency_seconds_sum", n); return `<tr><td>${n}</td><td class="num">${p.get("langgraph_node_runs_total", n)}</td><td class="num">${p.get("langgraph_node_errors_total", n)}</td><td class="num">${p.get("langgraph_node_retries_total", n)}</td><td class="num">${c ? (s / c * 1000).toFixed(1) : "0"} ms</td></tr>`; }).join("");
+    const gc = p.get("langgraph_graph_run_latency_seconds_count"), gs = p.get("langgraph_graph_run_latency_seconds_sum");
+    r.innerHTML = `<h3><span>Exporter output</span></h3>
+      <div class="kpis"><div class="kpi"><b>${o.runs}</b><span>graph runs</span></div><div class="kpi"><b>${o.ok}</b><span>succeeded</span></div><div class="kpi"><b>${p.get("langgraph_graph_errors_total")}</b><span>failed after retries</span></div><div class="kpi"><b>${gc ? (gs / gc * 1000).toFixed(1) : 0} ms</b><span>mean run latency</span></div></div>
+      <div class="tw" style="border:0;border-radius:0"><table><thead><tr><th>node</th><th>runs</th><th>errors</th><th>retries</th><th>mean latency</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="sec"><h4>/metrics (histogram buckets hidden)</h4></div><pre class="raw">${esc(o.series.join("\n"))}</pre>`;
+  }
+  function run() {
+    if (!py) return;
+    const fails = [["retrieve", +$("f1").value / 100], ["plan", +$("f2").value / 100], ["act", +$("f3").value / 100]];
+    py.globals.set("_f", py.toPy(fails));
+    let o;
+    try { o = JSON.parse(py.runPython(`run(${+$("runs").value}, _f, ${+$("rt").value}, 7)`)); } catch (e) { $("res").innerHTML = '<h3><span>Exporter output</span></h3><div class="status" style="color:var(--err)">' + esc(String(e.message || e).trim().split("\n").pop()) + "</div>"; return; }
+    show(o); track("ray_run");
+  }
+  [["f1", "o1", "%"], ["f2", "o2", "%"], ["f3", "o3", "%"], ["rt", "o4", ""], ["runs", "o5", ""]].forEach(([i, o, u]) => $(i).addEventListener("input", () => { $(o).textContent = $(i).value + u; }));
+  $("go").addEventListener("click", run);
+  $("reset").addEventListener("click", () => { [["f1", 20], ["f2", 0], ["f3", 40], ["rt", 1], ["runs", 30]].forEach(([i, v]) => { $(i).value = v; $(i).dispatchEvent(new Event("input")); }); run(); });
+  (async () => {
+    try {
+      py = await loadPyodide();
+      await py.loadPackage(["micropip", "ssl"]);
+      const wheel = (await (await fetch("wheels/manifest.txt")).text()).trim();
+      for (let i = 0; ; i++) { try { py.globals.set("_w", new URL("wheels/" + wheel, location.href).href); await py.runPythonAsync("import micropip\nawait micropip.install(_w)"); break; } catch (e) { if (i >= 2) throw e; await new Promise((r) => setTimeout(r, 1500)); } }
+      py.FS.mkdirTree("/lib/ray_agent_sre");
+      for (const f of ["__init__.py", "langgraph_metrics.py"]) { const r = await fetch("py/" + f); if (!r.ok) throw new Error("could not load " + f); py.FS.writeFile("/lib/ray_agent_sre/" + f, await r.text()); }
+      py.runPython("import sys; sys.path.insert(0, '/lib')");
+      py.runPython(PY); window.__RAY_READY__ = true; run();
+    } catch (e) { $("boot").textContent = "The in-browser tracer did not load (" + String(e.message || e).split("\n").pop() + "). The local run below gives the same series."; }
+  })();
+})();
+
+</script>
+</body>
+</html>
