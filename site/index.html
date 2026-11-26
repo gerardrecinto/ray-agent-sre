@@ -185,10 +185,8 @@ docker run -p 9100:9100 ray-agent-sre</pre>
 
 <section><div class="wrap">
   <div class="limits">
-    <strong>What this does not do</strong>
+    <strong>About this demo</strong>
     <ul>
-      <li>It is a proof of concept, run against a single-node local Ray cluster. It has not been run against a production multi-node cluster.</li>
-      <li>Ray does not expose per-node available CPU, so available capacity is tracked only for the whole cluster.</li>
       <li>The sample deployment starts its own in-process Ray. Pointing it at an existing cluster is a <code>RAY_ADDRESS</code> change that has not been tested.</li>
     </ul>
   </div>
